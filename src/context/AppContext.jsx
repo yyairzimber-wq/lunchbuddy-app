@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore'
+import { arrayRemove, arrayUnion, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore'
 import { db, firebaseReady } from '../firebase'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { FOODS } from '../data/foods'
@@ -37,6 +37,7 @@ export function AppProvider({ children }) {
   const [ready, setReady] = useState(!firebaseReady)
   const [deviceRole, setDeviceRole] = useLocalStorage('lb.deviceRole', null)
   const [myKidId, setMyKidId] = useLocalStorage('lb.myKidId', null)
+
 
   useEffect(() => {
     if (!firebaseReady) {
@@ -132,20 +133,33 @@ export function AppProvider({ children }) {
   const toggleTodayFood = (kidId, foodId) => {
     const date = todayKey()
     const entry = family.todayChoices[kidId]
-    const current = entry && entry.date === date ? entry.foodIds : []
-    const has = current.includes(foodId)
-    const nextFoodIds = has ? current.filter((id) => id !== foodId) : [...current, foodId]
-    const nextTodayChoices = {
-      ...family.todayChoices,
-      [kidId]: { date, foodIds: nextFoodIds, skip: false },
+    const isFreshDay = !entry || entry.date !== date
+    const has = !isFreshDay && entry.foodIds.includes(foodId)
+
+    if (firebaseReady) {
+      // Use atomic array ops keyed by field path instead of read-modify-write on the
+      // whole todayChoices map, so picking several meals in quick succession can't
+      // have one tap's write clobber another's before its round-trip finishes.
+      if (isFreshDay) {
+        const fresh = { [`todayChoices.${kidId}`]: { date, foodIds: [foodId], skip: false } }
+        updateDoc(familyRef, fresh).catch(() => setDoc(familyRef, fresh, { merge: true }))
+      } else {
+        const fieldUpdates = {
+          [`todayChoices.${kidId}.foodIds`]: has ? arrayRemove(foodId) : arrayUnion(foodId),
+        }
+        if (!has) fieldUpdates[`todayChoices.${kidId}.skip`] = false
+        updateDoc(familyRef, fieldUpdates).catch(() => {})
+      }
+    } else {
+      const current = isFreshDay ? [] : entry.foodIds
+      const nextFoodIds = has ? current.filter((id) => id !== foodId) : [...current, foodId]
+      applyUpdate({ todayChoices: { ...family.todayChoices, [kidId]: { date, foodIds: nextFoodIds, skip: false } } })
     }
-    if (has) {
-      applyUpdate({ todayChoices: nextTodayChoices })
-      return
+
+    if (!has) {
+      const currentHistory = family.history[kidId] || []
+      applyUpdate({ history: { ...family.history, [kidId]: [{ date, foodId }, ...currentHistory].slice(0, 50) } })
     }
-    const currentHistory = family.history[kidId] || []
-    const nextHistory = { ...family.history, [kidId]: [{ date, foodId }, ...currentHistory].slice(0, 50) }
-    applyUpdate({ todayChoices: nextTodayChoices, history: nextHistory })
   }
 
   const skipToday = (kidId) => {
