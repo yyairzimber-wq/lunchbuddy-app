@@ -13,11 +13,13 @@ const DEFAULT_FAMILY = {
   todayChoices: {},
   history: {},
   shoppingList: [],
-  activeVote: null,
+  poll: null,
   weeklyPlan: {},
   pantry: [],
   customFoods: [],
 }
+
+const EMPTY_TODAY = { foodIds: [], skip: false }
 
 const LOCAL_FAMILY_KEY = 'lb.family'
 const familyRef = firebaseReady ? doc(db, 'families', 'main') : null
@@ -28,17 +30,6 @@ function todayKey() {
 
 function generateCode() {
   return String(Math.floor(100000 + Math.random() * 900000))
-}
-
-function withChoice(todayChoices, history, kidId, foodId, source) {
-  const date = todayKey()
-  const nextTodayChoices = { ...todayChoices, [kidId]: { date, foodId, source } }
-  const currentHistory = history[kidId] || []
-  const nextHistory =
-    foodId === 'skip'
-      ? history
-      : { ...history, [kidId]: [{ date, foodId }, ...currentHistory].slice(0, 50) }
-  return { todayChoices: nextTodayChoices, history: nextHistory }
 }
 
 export function AppProvider({ children }) {
@@ -53,19 +44,6 @@ export function AppProvider({ children }) {
         const stored = window.localStorage.getItem(LOCAL_FAMILY_KEY)
         if (stored) {
           setFamily({ ...DEFAULT_FAMILY, ...JSON.parse(stored) })
-        } else {
-          const legacyKids = window.localStorage.getItem('lb.kids')
-          if (legacyKids) {
-            setFamily({
-              kids: JSON.parse(legacyKids),
-              favorites: JSON.parse(window.localStorage.getItem('lb.favorites') || '{}'),
-              ratings: JSON.parse(window.localStorage.getItem('lb.ratings') || '{}'),
-              todayChoices: JSON.parse(window.localStorage.getItem('lb.todayChoices') || '{}'),
-              history: JSON.parse(window.localStorage.getItem('lb.history') || '{}'),
-              shoppingList: JSON.parse(window.localStorage.getItem('lb.shoppingList') || '[]'),
-              activeVote: JSON.parse(window.localStorage.getItem('lb.activeVote') || 'null'),
-            })
-          }
         }
       } catch {
         // ignore
@@ -151,18 +129,39 @@ export function AppProvider({ children }) {
     })
   }
 
-  const chooseFood = (kidId, foodId, source = 'kid') => {
-    applyUpdate(withChoice(family.todayChoices, family.history, kidId, foodId, source))
+  const toggleTodayFood = (kidId, foodId) => {
+    const date = todayKey()
+    const entry = family.todayChoices[kidId]
+    const current = entry && entry.date === date ? entry.foodIds : []
+    const has = current.includes(foodId)
+    const nextFoodIds = has ? current.filter((id) => id !== foodId) : [...current, foodId]
+    const nextTodayChoices = {
+      ...family.todayChoices,
+      [kidId]: { date, foodIds: nextFoodIds, skip: false },
+    }
+    if (has) {
+      applyUpdate({ todayChoices: nextTodayChoices })
+      return
+    }
+    const currentHistory = family.history[kidId] || []
+    const nextHistory = { ...family.history, [kidId]: [{ date, foodId }, ...currentHistory].slice(0, 50) }
+    applyUpdate({ todayChoices: nextTodayChoices, history: nextHistory })
   }
 
   const skipToday = (kidId) => {
-    applyUpdate(withChoice(family.todayChoices, family.history, kidId, 'skip', 'kid'))
+    const date = todayKey()
+    applyUpdate({ todayChoices: { ...family.todayChoices, [kidId]: { date, foodIds: [], skip: true } } })
   }
 
-  const getTodayChoice = (kidId) => {
+  const getTodayChoices = (kidId) => {
     const entry = family.todayChoices[kidId]
-    if (!entry || entry.date !== todayKey()) return null
-    return entry
+    if (!entry || entry.date !== todayKey()) return EMPTY_TODAY
+    if (Array.isArray(entry.foodIds)) return entry
+    // legacy shape from before multi-select support: { date, foodId, source }
+    if (entry.foodId && entry.foodId !== 'skip') {
+      return { date: entry.date, foodIds: [entry.foodId], skip: false }
+    }
+    return { date: entry.date, foodIds: [], skip: entry.foodId === 'skip' }
   }
 
   const addShoppingItem = (text) => {
@@ -184,50 +183,36 @@ export function AppProvider({ children }) {
     applyUpdate({ shoppingList: family.shoppingList.filter((item) => item.id !== id) })
   }
 
-  const startVote = (foodIds) => {
-    applyUpdate({ activeVote: { id: `vote_${Date.now()}`, foodIds, votes: {}, closed: false, result: null } })
-  }
-
-  const castVote = (kidId, foodId) => {
-    if (!family.activeVote || family.activeVote.closed) return
-    applyUpdate({ activeVote: { ...family.activeVote, votes: { ...family.activeVote.votes, [kidId]: foodId } } })
-  }
-
-  const closeVote = () => {
-    if (!family.activeVote) return
-    const { foodIds, votes } = family.activeVote
-    const tally = {}
-    Object.values(votes).forEach((foodId) => {
-      tally[foodId] = (tally[foodId] || 0) + 1
+  const startPoll = (question, options) => {
+    applyUpdate({
+      poll: { id: `poll_${Date.now()}`, question, options, votes: {}, closed: false, result: null },
     })
-    let winner = foodIds[0]
+  }
+
+  const castPollVote = (kidId, optionIndex) => {
+    if (!family.poll || family.poll.closed) return
+    applyUpdate({ poll: { ...family.poll, votes: { ...family.poll.votes, [kidId]: optionIndex } } })
+  }
+
+  const closePoll = () => {
+    if (!family.poll) return
+    const { options, votes } = family.poll
+    const tally = new Array(options.length).fill(0)
+    Object.values(votes).forEach((idx) => {
+      tally[idx] = (tally[idx] || 0) + 1
+    })
+    let winner = 0
     let best = -1
-    foodIds.forEach((foodId) => {
-      const count = tally[foodId] || 0
+    tally.forEach((count, idx) => {
       if (count > best) {
         best = count
-        winner = foodId
+        winner = idx
       }
     })
-    applyUpdate({ activeVote: { ...family.activeVote, closed: true, result: winner } })
+    applyUpdate({ poll: { ...family.poll, closed: true, result: winner } })
   }
 
-  const applyVoteResult = () => {
-    if (!family.activeVote || !family.activeVote.result) return
-    const winner = family.activeVote.result
-    let todayChoices = family.todayChoices
-    let history = family.history
-    family.kids
-      .filter((k) => k.paired)
-      .forEach((k) => {
-        const next = withChoice(todayChoices, history, k.id, winner, 'vote')
-        todayChoices = next.todayChoices
-        history = next.history
-      })
-    applyUpdate({ todayChoices, history, activeVote: null })
-  }
-
-  const clearVote = () => applyUpdate({ activeVote: null })
+  const clearPoll = () => applyUpdate({ poll: null })
 
   const allFoods = useMemo(() => [...FOODS, ...family.customFoods], [family.customFoods])
 
@@ -284,7 +269,7 @@ export function AppProvider({ children }) {
       todayChoices: family.todayChoices,
       history: family.history,
       shoppingList: family.shoppingList,
-      activeVote: family.activeVote,
+      poll: family.poll,
       weeklyPlan: family.weeklyPlan,
       pantry: family.pantry,
       customFoods: family.customFoods,
@@ -301,17 +286,16 @@ export function AppProvider({ children }) {
       removeKid,
       toggleFavorite,
       rateFood,
-      chooseFood,
+      toggleTodayFood,
       skipToday,
-      getTodayChoice,
+      getTodayChoices,
       addShoppingItem,
       toggleShoppingItem,
       removeShoppingItem,
-      startVote,
-      castVote,
-      closeVote,
-      applyVoteResult,
-      clearVote,
+      startPoll,
+      castPollVote,
+      closePoll,
+      clearPoll,
       setWeeklyMeal,
       clearWeeklyMeal,
       togglePantryItem,

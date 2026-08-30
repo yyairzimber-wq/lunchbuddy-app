@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Utensils, Heart, History, User, Moon, Sun, CalendarDays } from 'lucide-react'
+import { Utensils, CalendarDays, ShoppingCart, User, Moon, Sun } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
 import { useTheme } from '../context/ThemeContext'
+import { CATEGORIES } from '../data/foods'
 import CategoryTabs from '../components/CategoryTabs'
 import FoodCard from '../components/FoodCard'
 import TabBar from '../components/TabBar'
-import VoteCard from '../components/VoteCard'
+import PollCard from '../components/PollCard'
 import RecipeModal from '../components/RecipeModal'
 import WeeklyPlanner from '../components/WeeklyPlanner'
 import AddFoodForm from '../components/AddFoodForm'
@@ -18,9 +19,8 @@ import { getMakeableFoods } from '../utils/pantry'
 const TABS = [
   { id: 'choose', label: 'בחירה', icon: <Utensils size={18} /> },
   { id: 'planner', label: 'תכנון שבועי', icon: <CalendarDays size={18} /> },
-  { id: 'favorites', label: 'מועדפים', icon: <Heart size={18} /> },
-  { id: 'history', label: 'היסטוריה', icon: <History size={18} /> },
-  { id: 'profile', label: 'הפרופיל שלי', icon: <User size={18} /> },
+  { id: 'shopping', label: 'קניות', icon: <ShoppingCart size={18} /> },
+  { id: 'profile', label: 'שלי', icon: <User size={18} /> },
 ]
 
 export default function KidView() {
@@ -34,13 +34,13 @@ export default function KidView() {
     ratings,
     toggleFavorite,
     rateFood,
-    chooseFood,
+    toggleTodayFood,
     skipToday,
-    getTodayChoice,
+    getTodayChoices,
     history,
     resetDevice,
-    activeVote,
-    castVote,
+    poll,
+    castPollVote,
     weeklyPlan,
     pantry,
     setWeeklyMeal,
@@ -49,6 +49,10 @@ export default function KidView() {
     addCustomFood,
     removeCustomFood,
     setKidPhoto,
+    shoppingList,
+    addShoppingItem,
+    toggleShoppingItem,
+    removeShoppingItem,
   } = useApp()
 
   const kid = kids.find((k) => k.id === kidId)
@@ -58,13 +62,12 @@ export default function KidView() {
   const [suggestion, setSuggestion] = useState(null)
   const [recipeFood, setRecipeFood] = useState(null)
   const [addingFood, setAddingFood] = useState(false)
+  const [newItem, setNewItem] = useState('')
 
   const kidFavorites = favorites[kidId] || []
   const kidRatings = ratings[kidId] || {}
   const kidHistory = history[kidId] || []
-  const todayChoice = getTodayChoice(kidId)
-  const chosenFood =
-    todayChoice && todayChoice.foodId !== 'skip' ? allFoods.find((f) => f.id === todayChoice.foodId) : null
+  const todayChoice = getTodayChoices(kidId)
   const streak = useMemo(() => computeStreak(kidHistory), [kidHistory])
   const challenge = useMemo(() => getWeeklyChallenge(allFoods, kidRatings), [allFoods, kidRatings])
 
@@ -79,6 +82,12 @@ export default function KidView() {
   const favoriteFoods = allFoods.filter((f) => kidFavorites.includes(f.id))
   const kidPlan = weeklyPlan[kidId] || {}
   const makeableFoods = useMemo(() => getMakeableFoods(allFoods, pantry), [allFoods, pantry])
+
+  const chosenFoods = allFoods.filter((f) => todayChoice.foodIds.includes(f.id))
+  const chosenByCategory = CATEGORIES.map((cat) => ({
+    ...cat,
+    foods: chosenFoods.filter((f) => f.category === cat.id),
+  })).filter((g) => g.foods.length > 0)
 
   if (!kid) {
     return (
@@ -102,9 +111,10 @@ export default function KidView() {
     showToast(`דירגת ${n} כוכבים`, '⭐')
   }
 
-  const handleChoose = (id) => {
-    chooseFood(kidId, id)
-    showToast('האוכל של היום נבחר!', '🎉')
+  const handleToggleFood = (id) => {
+    const wasChosen = todayChoice.foodIds.includes(id)
+    toggleTodayFood(kidId, id)
+    showToast(wasChosen ? 'הוסר מהבחירות של היום' : 'נוסף לבחירות של היום!', wasChosen ? '➖' : '🎉')
   }
 
   const handleSkip = () => {
@@ -112,14 +122,15 @@ export default function KidView() {
     showToast('סימנת שאתה לא רוצה לבחור היום', '🙅')
   }
 
-  const handleVote = (foodId) => {
-    castVote(kidId, foodId)
+  const handleVote = (optionIndex) => {
+    castPollVote(kidId, optionIndex)
     showToast('ההצבעה שלך נשמרה', '🗳️')
   }
 
   const pickForMe = () => {
-    const pool = filteredFoods.length > 0 ? filteredFoods : allFoods
-    const pick = pool[Math.floor(Math.random() * pool.length)]
+    const pool = filteredFoods.filter((f) => !todayChoice.foodIds.includes(f.id))
+    const source = pool.length > 0 ? pool : filteredFoods
+    const pick = source[Math.floor(Math.random() * source.length)]
     setSuggestion(pick)
   }
 
@@ -131,6 +142,12 @@ export default function KidView() {
   const handleDeleteFood = (food) => {
     removeCustomFood(food.id)
     showToast(`${food.name} נמחק`, '🗑️')
+  }
+
+  const handleAddShoppingItem = (e) => {
+    e.preventDefault()
+    addShoppingItem(newItem)
+    setNewItem('')
   }
 
   const handleSwitchUser = () => {
@@ -167,19 +184,22 @@ export default function KidView() {
                   ⏳ ממתין/ה לאישור ההורה — הקוד שלך: <strong>{kid.code}</strong>
                 </div>
               )}
-              {chosenFood && (
+              {chosenByCategory.length > 0 && (
                 <div className="today-banner">
-                  היום בחרת: <strong>{chosenFood.emoji} {chosenFood.name}</strong> 🎉
+                  {chosenByCategory.map((g) => (
+                    <div key={g.id} className="today-banner__group">
+                      {g.emoji} <strong>{g.name}:</strong>{' '}
+                      {g.foods.map((f) => `${f.emoji} ${f.name}`).join(', ')}
+                    </div>
+                  ))}
                 </div>
               )}
-              {todayChoice?.foodId === 'skip' && (
+              {todayChoice.skip && (
                 <div className="today-banner today-banner--skip">סימנת שאתה לא רוצה לבחור היום 🙅</div>
               )}
             </div>
 
-            {activeVote && !chosenFood && (
-              <VoteCard vote={activeVote} kidId={kidId} foods={allFoods} onVote={handleVote} />
-            )}
+            {poll && <PollCard poll={poll} kidId={kidId} onVote={handleVote} />}
 
             {challenge && (
               <div className="challenge-banner">
@@ -208,7 +228,7 @@ export default function KidView() {
                     <button
                       className="btn btn--primary"
                       onClick={() => {
-                        handleChoose(suggestion.id)
+                        handleToggleFood(suggestion.id)
                         setSuggestion(null)
                       }}
                     >
@@ -257,8 +277,8 @@ export default function KidView() {
                   food={food}
                   isFavorite={kidFavorites.includes(food.id)}
                   rating={kidRatings[food.id] || 0}
-                  isChosen={chosenFood?.id === food.id}
-                  onChoose={handleChoose}
+                  isChosen={todayChoice.foodIds.includes(food.id)}
+                  onChoose={handleToggleFood}
                   onToggleFavorite={handleToggleFavorite}
                   onRate={handleRate}
                   onShowRecipe={setRecipeFood}
@@ -282,46 +302,33 @@ export default function KidView() {
           </div>
         )}
 
-        {tab === 'favorites' && (
+        {tab === 'shopping' && (
           <div className="tab-fade">
-            <h1 className="section-title">❤️ המועדפים שלי</h1>
-            <div className="food-grid">
-              {favoriteFoods.map((food) => (
-                <FoodCard
-                  key={food.id}
-                  food={food}
-                  isFavorite
-                  rating={kidRatings[food.id] || 0}
-                  isChosen={chosenFood?.id === food.id}
-                  onChoose={handleChoose}
-                  onToggleFavorite={handleToggleFavorite}
-                  onRate={handleRate}
-                  onShowRecipe={setRecipeFood}
-                  onDeleteFood={handleDeleteFood}
-                />
+            <h1 className="section-title">🛒 רשימת קניות</h1>
+            <form className="shopping-form" onSubmit={handleAddShoppingItem}>
+              <input
+                className="text-input"
+                placeholder="הוסף מוצר..."
+                value={newItem}
+                onChange={(e) => setNewItem(e.target.value)}
+              />
+              <button type="submit" className="btn btn--primary">
+                הוסף
+              </button>
+            </form>
+            <ul className="shopping-list">
+              {shoppingList.map((item) => (
+                <li key={item.id} className={item.done ? 'shopping-item--done' : ''}>
+                  <label>
+                    <input type="checkbox" checked={item.done} onChange={() => toggleShoppingItem(item.id)} />
+                    {item.text}
+                  </label>
+                  <button className="btn btn--icon" onClick={() => removeShoppingItem(item.id)}>
+                    ✕
+                  </button>
+                </li>
               ))}
-              {favoriteFoods.length === 0 && (
-                <p className="empty-state">עדיין אין מועדפים — סמן/י לב על מאכלים שאהבת ❤️</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {tab === 'history' && (
-          <div className="tab-fade">
-            <h1 className="section-title">🕓 ההיסטוריה שלי</h1>
-            <ul className="history-list">
-              {kidHistory.length === 0 && <li className="empty-state">עדיין אין היסטוריה</li>}
-              {kidHistory.map((entry, i) => {
-                const food = allFoods.find((f) => f.id === entry.foodId)
-                if (!food) return null
-                return (
-                  <li key={i} className="history-list__item">
-                    <span>{food.emoji} {food.name}</span>
-                    <span className="history-list__date">{entry.date}</span>
-                  </li>
-                )
-              })}
+              {shoppingList.length === 0 && <li className="empty-state">הרשימה ריקה</li>}
             </ul>
           </div>
         )}
@@ -348,6 +355,46 @@ export default function KidView() {
             <button className="btn btn--ghost btn--wide" onClick={handleSwitchUser}>
               🔄 החלף משתמש
             </button>
+
+            <h2 className="section-title" style={{ marginTop: 28 }}>
+              ❤️ המועדפים שלי
+            </h2>
+            <div className="food-grid">
+              {favoriteFoods.map((food) => (
+                <FoodCard
+                  key={food.id}
+                  food={food}
+                  isFavorite
+                  rating={kidRatings[food.id] || 0}
+                  isChosen={todayChoice.foodIds.includes(food.id)}
+                  onChoose={handleToggleFood}
+                  onToggleFavorite={handleToggleFavorite}
+                  onRate={handleRate}
+                  onShowRecipe={setRecipeFood}
+                  onDeleteFood={handleDeleteFood}
+                />
+              ))}
+              {favoriteFoods.length === 0 && (
+                <p className="empty-state">עדיין אין מועדפים — סמן/י לב על מאכלים שאהבת ❤️</p>
+              )}
+            </div>
+
+            <h2 className="section-title" style={{ marginTop: 28 }}>
+              🕓 ההיסטוריה שלי
+            </h2>
+            <ul className="history-list">
+              {kidHistory.length === 0 && <li className="empty-state">עדיין אין היסטוריה</li>}
+              {kidHistory.map((entry, i) => {
+                const food = allFoods.find((f) => f.id === entry.foodId)
+                if (!food) return null
+                return (
+                  <li key={i} className="history-list__item">
+                    <span>{food.emoji} {food.name}</span>
+                    <span className="history-list__date">{entry.date}</span>
+                  </li>
+                )
+              })}
+            </ul>
           </div>
         )}
       </div>

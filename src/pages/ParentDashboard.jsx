@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Home, Baby, BarChart3, ShoppingCart, Moon, Sun, Vote, Cloud, CloudOff, ChefHat } from 'lucide-react'
+import { Home, Baby, ShoppingCart, Moon, Sun, Vote, Cloud, CloudOff, ChefHat } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
 import { useTheme } from '../context/ThemeContext'
-import { AVATARS } from '../data/foods'
+import { AVATARS, CATEGORIES } from '../data/foods'
 import TabBar from '../components/TabBar'
-import BarChart from '../components/BarChart'
 import PantryChecklist from '../components/PantryChecklist'
 import AddFoodForm from '../components/AddFoodForm'
 import { getMakeableFoods } from '../utils/pantry'
@@ -15,7 +14,6 @@ const TABS = [
   { id: 'home', label: 'לוח בית', icon: <Home size={18} /> },
   { id: 'kids', label: 'ילדים', icon: <Baby size={18} /> },
   { id: 'kitchen', label: 'מה יש בבית', icon: <ChefHat size={18} /> },
-  { id: 'stats', label: 'סטטיסטיקות', icon: <BarChart3 size={18} /> },
   { id: 'shopping', label: 'קניות', icon: <ShoppingCart size={18} /> },
 ]
 
@@ -25,9 +23,8 @@ export default function ParentDashboard() {
   const { theme, toggleTheme } = useTheme()
   const {
     kids,
-    getTodayChoice,
-    chooseFood,
-    history,
+    getTodayChoices,
+    toggleTodayFood,
     shoppingList,
     addShoppingItem,
     toggleShoppingItem,
@@ -36,11 +33,10 @@ export default function ParentDashboard() {
     addKidDirect,
     removeKid,
     resetDevice,
-    activeVote,
-    startVote,
-    closeVote,
-    applyVoteResult,
-    clearVote,
+    poll,
+    startPoll,
+    closePoll,
+    clearPoll,
     syncMode,
     pantry,
     togglePantryItem,
@@ -58,32 +54,19 @@ export default function ParentDashboard() {
   const [addingDirect, setAddingDirect] = useState(false)
   const [directName, setDirectName] = useState('')
   const [directAvatar, setDirectAvatar] = useState(AVATARS[0])
-  const [votePicker, setVotePicker] = useState(false)
-  const [voteSelection, setVoteSelection] = useState([])
+  const [pollPicker, setPollPicker] = useState(false)
+  const [pollQuestion, setPollQuestion] = useState('')
+  const [pollOptions, setPollOptions] = useState(['', ''])
   const [addingFood, setAddingFood] = useState(false)
-
-  const voteChoices = allFoods.slice(0, 12)
 
   const pairedKids = kids.filter((k) => k.paired)
   const pendingKids = kids.filter((k) => !k.paired)
 
-  const pendingReminders = pairedKids.filter((kid) => !getTodayChoice(kid.id))
+  const pendingReminders = pairedKids.filter((kid) => {
+    const choice = getTodayChoices(kid.id)
+    return choice.foodIds.length === 0 && !choice.skip
+  })
 
-  const stats = useMemo(() => {
-    const counts = {}
-    Object.values(history).forEach((entries) => {
-      entries.forEach(({ foodId }) => {
-        counts[foodId] = (counts[foodId] || 0) + 1
-      })
-    })
-    return Object.entries(counts)
-      .map(([foodId, count]) => ({ food: allFoods.find((f) => f.id === foodId), count }))
-      .filter((s) => s.food)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5)
-  }, [history, allFoods])
-
-  const chartData = stats.map((s) => ({ label: s.food.name, emoji: s.food.emoji, value: s.count }))
   const makeableFoods = useMemo(() => getMakeableFoods(allFoods, pantry), [allFoods, pantry])
 
   const handleAddItem = (e) => {
@@ -118,23 +101,26 @@ export default function ParentDashboard() {
     navigate('/', { replace: true })
   }
 
-  const toggleVoteChoice = (foodId) => {
-    setVoteSelection((prev) =>
-      prev.includes(foodId) ? prev.filter((id) => id !== foodId) : prev.length < 4 ? [...prev, foodId] : prev
-    )
+  const updatePollOption = (i, val) => {
+    setPollOptions((prev) => prev.map((o, idx) => (idx === i ? val : o)))
   }
 
-  const handleStartVote = () => {
-    if (voteSelection.length < 2) return
-    startVote(voteSelection)
-    setVoteSelection([])
-    setVotePicker(false)
-    showToast('ההצבעה המשפחתית התחילה!', '🗳️')
+  const addPollOption = () => {
+    setPollOptions((prev) => (prev.length < 6 ? [...prev, ''] : prev))
   }
 
-  const handleApplyVote = () => {
-    applyVoteResult()
-    showToast('הבחירה הוחלה על כל המשפחה', '🎉')
+  const removePollOption = (i) => {
+    setPollOptions((prev) => prev.filter((_, idx) => idx !== i))
+  }
+
+  const handleStartPoll = () => {
+    const cleaned = pollOptions.map((o) => o.trim()).filter(Boolean)
+    if (!pollQuestion.trim() || cleaned.length < 2) return
+    startPoll(pollQuestion.trim(), cleaned)
+    setPollQuestion('')
+    setPollOptions(['', ''])
+    setPollPicker(false)
+    showToast('הסקר נשלח למשפחה!', '📊')
   }
 
   const handleAddFood = (name, emoji, category) => {
@@ -178,74 +164,79 @@ export default function ParentDashboard() {
 
             <section className="section">
               <div className="section__header-row">
-                <h2><Vote size={18} /> הצבעה משפחתית</h2>
-                {!activeVote && (
-                  <button className="btn btn--small" onClick={() => setVotePicker((v) => !v)}>
-                    {votePicker ? 'ביטול' : '+ התחל הצבעה'}
+                <h2><Vote size={18} /> סקר משפחתי</h2>
+                {!poll && (
+                  <button className="btn btn--small" onClick={() => setPollPicker((v) => !v)}>
+                    {pollPicker ? 'ביטול' : '+ סקר חדש'}
                   </button>
                 )}
               </div>
 
-              {votePicker && !activeVote && (
-                <>
-                  <p className="hint-text">בחר/י 2 עד 4 מנות שהמשפחה תצביע ביניהן.</p>
-                  <div className="vote-picker-grid">
-                    {voteChoices.map((food) => (
-                      <button
-                        key={food.id}
-                        className={`vote-picker-item${voteSelection.includes(food.id) ? ' vote-picker-item--active' : ''}`}
-                        onClick={() => toggleVoteChoice(food.id)}
-                      >
-                        {food.emoji} {food.name}
-                      </button>
-                    ))}
-                  </div>
+              {pollPicker && !poll && (
+                <div className="poll-form">
+                  <p className="hint-text">כתוב/י שאלה וכמה אפשרויות (במלל חופשי) — בדיוק כמו סקר בוואטסאפ.</p>
+                  <input
+                    className="text-input"
+                    placeholder="השאלה שלך... (למשל: מה נאכל הערב?)"
+                    value={pollQuestion}
+                    onChange={(e) => setPollQuestion(e.target.value)}
+                  />
+                  {pollOptions.map((opt, i) => (
+                    <div key={i} className="poll-option-row">
+                      <input
+                        className="text-input"
+                        placeholder={`אפשרות ${i + 1}...`}
+                        value={opt}
+                        onChange={(e) => updatePollOption(i, e.target.value)}
+                      />
+                      {pollOptions.length > 2 && (
+                        <button className="poll-option-row__remove" onClick={() => removePollOption(i)}>
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {pollOptions.length < 6 && (
+                    <button className="btn btn--small" onClick={addPollOption}>
+                      + הוסף אפשרות
+                    </button>
+                  )}
                   <button
                     className="btn btn--primary btn--wide"
-                    disabled={voteSelection.length < 2}
-                    onClick={handleStartVote}
+                    disabled={!pollQuestion.trim() || pollOptions.filter((o) => o.trim()).length < 2}
+                    onClick={handleStartPoll}
                   >
-                    התחל הצבעה עם {voteSelection.length} אפשרויות
-                  </button>
-                </>
-              )}
-
-              {activeVote && (
-                <div className="vote-tally">
-                  {activeVote.foodIds.map((foodId) => {
-                    const food = allFoods.find((f) => f.id === foodId)
-                    const count = Object.values(activeVote.votes).filter((v) => v === foodId).length
-                    return (
-                      <div key={foodId} className="vote-tally__row">
-                        <span>{food.emoji} {food.name}</span>
-                        <span className="vote-tally__count">{count} קולות</span>
-                      </div>
-                    )
-                  })}
-                  {!activeVote.closed ? (
-                    <button className="btn btn--primary btn--wide" onClick={closeVote}>
-                      סגור/י הצבעה
-                    </button>
-                  ) : (
-                    <>
-                      <p className="vote-tally__winner">
-                        🏆 המנצח: {allFoods.find((f) => f.id === activeVote.result)?.emoji}{' '}
-                        {allFoods.find((f) => f.id === activeVote.result)?.name}
-                      </p>
-                      <button className="btn btn--primary btn--wide" onClick={handleApplyVote}>
-                        החל/י על כל המשפחה
-                      </button>
-                    </>
-                  )}
-                  <button className="btn btn--ghost btn--wide" onClick={clearVote}>
-                    בטל/י הצבעה
+                    שלח/י את הסקר למשפחה
                   </button>
                 </div>
               )}
 
-              {!activeVote && !votePicker && (
-                <p className="hint-text">אין הצבעה פעילה כרגע.</p>
+              {poll && (
+                <div className="vote-tally">
+                  <p className="vote-card__question">{poll.question}</p>
+                  {poll.options.map((opt, i) => {
+                    const count = Object.values(poll.votes).filter((v) => v === i).length
+                    return (
+                      <div key={i} className="vote-tally__row">
+                        <span>{opt}</span>
+                        <span className="vote-tally__count">{count} קולות</span>
+                      </div>
+                    )
+                  })}
+                  {!poll.closed ? (
+                    <button className="btn btn--primary btn--wide" onClick={closePoll}>
+                      סגור/י סקר
+                    </button>
+                  ) : (
+                    <p className="vote-tally__winner">🏆 המנצח: {poll.options[poll.result]}</p>
+                  )}
+                  <button className="btn btn--ghost btn--wide" onClick={clearPoll}>
+                    מחק/י סקר
+                  </button>
+                </div>
               )}
+
+              {!poll && !pollPicker && <p className="hint-text">אין סקר פעיל כרגע.</p>}
             </section>
 
             <section className="section">
@@ -255,9 +246,12 @@ export default function ParentDashboard() {
               )}
               <div className="family-board">
                 {pairedKids.map((kid) => {
-                  const choice = getTodayChoice(kid.id)
-                  const food =
-                    choice && choice.foodId !== 'skip' ? allFoods.find((f) => f.id === choice.foodId) : null
+                  const choice = getTodayChoices(kid.id)
+                  const chosenFoods = allFoods.filter((f) => choice.foodIds.includes(f.id))
+                  const grouped = CATEGORIES.map((cat) => ({
+                    ...cat,
+                    foods: chosenFoods.filter((f) => f.category === cat.id),
+                  })).filter((g) => g.foods.length > 0)
                   return (
                     <div key={kid.id} className="family-card">
                       <div className="family-card__header">
@@ -268,11 +262,16 @@ export default function ParentDashboard() {
                         )}
                         <span>{kid.name}</span>
                       </div>
-                      {food ? (
-                        <div className="family-card__status family-card__status--ok">
-                          {food.emoji} {food.name}
+                      {grouped.length > 0 ? (
+                        <div className="family-card__meals">
+                          {grouped.map((g) => (
+                            <div key={g.id} className="family-card__meal-row">
+                              <strong>{g.emoji} {g.name}:</strong>{' '}
+                              {g.foods.map((f) => `${f.emoji} ${f.name}`).join(', ')}
+                            </div>
+                          ))}
                         </div>
-                      ) : choice?.foodId === 'skip' ? (
+                      ) : choice.skip ? (
                         <div className="family-card__status">לא רוצה לבחור היום</div>
                       ) : (
                         <div className="family-card__status family-card__status--pending">⏰ עדיין לא בחר/ה</div>
@@ -287,7 +286,7 @@ export default function ParentDashboard() {
                               key={f.id}
                               className="suggest-picker__item"
                               onClick={() => {
-                                chooseFood(kid.id, f.id, 'parent')
+                                toggleTodayFood(kid.id, f.id)
                                 setSuggestingFor(null)
                                 showToast(`ארוחה הוצעה ל${kid.name}`, '🍽️')
                               }}
@@ -436,19 +435,6 @@ export default function ParentDashboard() {
                     </li>
                   ))}
                 </ul>
-              )}
-            </section>
-          </div>
-        )}
-
-        {tab === 'stats' && (
-          <div className="tab-fade">
-            <section className="section">
-              <h2>סטטיסטיקות המשפחה</h2>
-              {stats.length === 0 ? (
-                <p className="empty-state">אין עדיין מספיק נתונים.</p>
-              ) : (
-                <BarChart data={chartData} />
               )}
             </section>
           </div>

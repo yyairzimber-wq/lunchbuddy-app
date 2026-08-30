@@ -830,6 +830,30 @@ button {
   font-weight: 600;
 }
 
+.family-card__meals {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.family-card__meal-row {
+  font-size: 0.85rem;
+  color: var(--success);
+}
+
+.family-card__meal-row strong {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.today-banner__group {
+  margin-bottom: 4px;
+}
+
+.today-banner__group:last-child {
+  margin-bottom: 0;
+}
+
 .suggest-picker {
   display: flex;
   flex-direction: column;
@@ -987,26 +1011,32 @@ button {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Voting */
-.vote-picker-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 8px;
+/* Voting / polls */
+.poll-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   margin-bottom: 14px;
 }
 
-.vote-picker-item {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 8px;
-  font-size: 0.85rem;
-  color: var(--text);
+.poll-option-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
-.vote-picker-item--active {
-  background: var(--gradient-soft);
-  border-color: var(--primary);
+.poll-option-row__remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  padding: 4px 8px;
+}
+
+.vote-card__question {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 12px;
 }
 
 .vote-tally {
