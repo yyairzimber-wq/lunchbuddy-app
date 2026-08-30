@@ -15,8 +15,8 @@ const DEFAULT_FAMILY = {
   shoppingList: [],
   poll: null,
   weeklyPlan: {},
-  pantry: [],
   customFoods: [],
+  todayMenu: null,
 }
 
 const EMPTY_TODAY = { foodIds: [], skip: false }
@@ -231,12 +231,11 @@ export function AppProvider({ children }) {
     applyUpdate({ weeklyPlan: { ...family.weeklyPlan, [kidId]: kidPlan } })
   }
 
-  const togglePantryItem = (ingredientId) => {
-    const next = family.pantry.includes(ingredientId)
-      ? family.pantry.filter((id) => id !== ingredientId)
-      : [...family.pantry, ingredientId]
-    applyUpdate({ pantry: next })
+  const setTodayMenu = (text) => {
+    applyUpdate({ todayMenu: { date: todayKey(), text: text.trim() } })
   }
+
+  const todayMenuText = family.todayMenu && family.todayMenu.date === todayKey() ? family.todayMenu.text : ''
 
   const addCustomFood = (name, emoji, category) => {
     if (!name.trim()) return
@@ -271,8 +270,8 @@ export function AppProvider({ children }) {
       shoppingList: family.shoppingList,
       poll: family.poll,
       weeklyPlan: family.weeklyPlan,
-      pantry: family.pantry,
       customFoods: family.customFoods,
+      todayMenuText,
       allFoods,
       ready,
       syncMode: firebaseReady ? 'cloud' : 'local',
@@ -298,7 +297,7 @@ export function AppProvider({ children }) {
       clearPoll,
       setWeeklyMeal,
       clearWeeklyMeal,
-      togglePantryItem,
+      setTodayMenu,
       addCustomFood,
       removeCustomFood,
       setKidPhoto,

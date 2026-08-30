@@ -1,19 +1,16 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Home, Baby, ShoppingCart, Moon, Sun, Vote, Cloud, CloudOff, ChefHat } from 'lucide-react'
+import { Home, Baby, ShoppingCart, Moon, Sun, Vote, Cloud, CloudOff } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
 import { useTheme } from '../context/ThemeContext'
 import { AVATARS, CATEGORIES } from '../data/foods'
 import TabBar from '../components/TabBar'
-import PantryChecklist from '../components/PantryChecklist'
-import AddFoodForm from '../components/AddFoodForm'
-import { getMakeableFoods } from '../utils/pantry'
+import { formatDateHebrew } from '../utils/date'
 
 const TABS = [
   { id: 'home', label: 'לוח בית', icon: <Home size={18} /> },
   { id: 'kids', label: 'ילדים', icon: <Baby size={18} /> },
-  { id: 'kitchen', label: 'מה יש בבית', icon: <ChefHat size={18} /> },
   { id: 'shopping', label: 'קניות', icon: <ShoppingCart size={18} /> },
 ]
 
@@ -38,12 +35,9 @@ export default function ParentDashboard() {
     closePoll,
     clearPoll,
     syncMode,
-    pantry,
-    togglePantryItem,
     allFoods,
-    customFoods,
-    addCustomFood,
-    removeCustomFood,
+    todayMenuText,
+    setTodayMenu,
   } = useApp()
 
   const [tab, setTab] = useState('home')
@@ -57,7 +51,11 @@ export default function ParentDashboard() {
   const [pollPicker, setPollPicker] = useState(false)
   const [pollQuestion, setPollQuestion] = useState('')
   const [pollOptions, setPollOptions] = useState(['', ''])
-  const [addingFood, setAddingFood] = useState(false)
+  const [menuDraft, setMenuDraft] = useState(todayMenuText)
+
+  useEffect(() => {
+    setMenuDraft(todayMenuText)
+  }, [todayMenuText])
 
   const pairedKids = kids.filter((k) => k.paired)
   const pendingKids = kids.filter((k) => !k.paired)
@@ -66,8 +64,6 @@ export default function ParentDashboard() {
     const choice = getTodayChoices(kid.id)
     return choice.foodIds.length === 0 && !choice.skip
   })
-
-  const makeableFoods = useMemo(() => getMakeableFoods(allFoods, pantry), [allFoods, pantry])
 
   const handleAddItem = (e) => {
     e.preventDefault()
@@ -123,14 +119,9 @@ export default function ParentDashboard() {
     showToast('הסקר נשלח למשפחה!', '📊')
   }
 
-  const handleAddFood = (name, emoji, category) => {
-    addCustomFood(name, emoji, category)
-    showToast('המאכל נוסף לרשימה!', '🍽️')
-  }
-
-  const handleDeleteFood = (food) => {
-    removeCustomFood(food.id)
-    showToast(`${food.name} נמחק`, '🗑️')
+  const handleSaveMenu = () => {
+    setTodayMenu(menuDraft)
+    showToast('העדכון נשמר', '🍲')
   }
 
   return (
@@ -240,7 +231,24 @@ export default function ParentDashboard() {
             </section>
 
             <section className="section">
-              <h2>לוח משפחתי</h2>
+              <h2>🍲 מה יש לאכול היום</h2>
+              <p className="hint-text">{formatDateHebrew()}</p>
+              <div className="poll-form">
+                <input
+                  className="text-input"
+                  placeholder="למשל: פסטה ברוטב עגבניות, סלט וקינוח..."
+                  value={menuDraft}
+                  onChange={(e) => setMenuDraft(e.target.value)}
+                />
+                <button className="btn btn--primary btn--wide" onClick={handleSaveMenu}>
+                  עדכן/י
+                </button>
+              </div>
+            </section>
+
+            <section className="section">
+              <h2>מה אני רוצה לאכול היום</h2>
+              <p className="hint-text">{formatDateHebrew()}</p>
               {pairedKids.length === 0 && (
                 <p className="empty-state">עדיין אין ילדים מחוברים — עברו לטאב "ילדים" כדי להוסיף.</p>
               )}
@@ -391,51 +399,6 @@ export default function ParentDashboard() {
                 ))}
                 {pairedKids.length === 0 && <li className="empty-state">אין עדיין ילדים מחוברים</li>}
               </ul>
-            </section>
-          </div>
-        )}
-
-        {tab === 'kitchen' && (
-          <div className="tab-fade">
-            <section className="section">
-              <h2>🧺 מה יש בבית?</h2>
-              <p className="hint-text">סמן/י מצרכים שיש בבית, ונציע ארוחות שאפשר להכין מהם.</p>
-              <PantryChecklist pantry={pantry} onToggle={togglePantryItem} />
-            </section>
-
-            <section className="section">
-              <h2>🍽️ אפשר להכין עכשיו</h2>
-              {makeableFoods.length === 0 ? (
-                <p className="empty-state">סמנו כמה מצרכים כדי לראות הצעות.</p>
-              ) : (
-                <ul className="stats-list">
-                  {makeableFoods.map((f) => (
-                    <li key={f.id}>{f.emoji} {f.name}</li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            <section className="section">
-              <div className="section__header-row">
-                <h2>➕ הוסף מאכל משלך</h2>
-                <button className="btn btn--small" onClick={() => setAddingFood((v) => !v)}>
-                  {addingFood ? 'ביטול' : '+ הוסף'}
-                </button>
-              </div>
-              {addingFood && <AddFoodForm onAdd={handleAddFood} onClose={() => setAddingFood(false)} />}
-              {customFoods.length > 0 && (
-                <ul className="kids-list">
-                  {customFoods.map((f) => (
-                    <li key={f.id}>
-                      <span>{f.emoji} {f.name}</span>
-                      <button className="btn btn--icon" onClick={() => handleDeleteFood(f)}>
-                        🗑️
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </section>
           </div>
         )}

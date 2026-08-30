@@ -876,12 +876,6 @@ button {
   background: rgba(255, 255, 255, 0.06);
 }
 
-.stats-list {
-  margin: 0;
-  padding-inline-start: 20px;
-  color: var(--text-muted);
-}
-
 .shopping-form {
   display: flex;
   gap: 10px;
@@ -1289,40 +1283,6 @@ button {
 
 .planner-picker__item:hover {
   background: rgba(255, 255, 255, 0.06);
-}
-
-/* Pantry */
-.pantry-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 8px;
-}
-
-.pantry-item {
-  position: relative;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
-
-.pantry-item--active {
-  border-color: var(--success);
-  background: var(--success-bg);
-  color: var(--success);
-}
-
-.pantry-item__check {
-  position: absolute;
-  top: 4px;
-  left: 6px;
-  font-size: 0.7rem;
 }
 
 /* Photos & custom food form */

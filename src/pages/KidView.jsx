@@ -14,7 +14,6 @@ import WeeklyPlanner from '../components/WeeklyPlanner'
 import AddFoodForm from '../components/AddFoodForm'
 import PhotoPicker from '../components/PhotoPicker'
 import { computeStreak, getWeeklyChallenge } from '../utils/stats'
-import { getMakeableFoods } from '../utils/pantry'
 
 const TABS = [
   { id: 'choose', label: 'בחירה', icon: <Utensils size={18} /> },
@@ -42,7 +41,7 @@ export default function KidView() {
     poll,
     castPollVote,
     weeklyPlan,
-    pantry,
+    todayMenuText,
     setWeeklyMeal,
     clearWeeklyMeal,
     allFoods,
@@ -81,7 +80,6 @@ export default function KidView() {
 
   const favoriteFoods = allFoods.filter((f) => kidFavorites.includes(f.id))
   const kidPlan = weeklyPlan[kidId] || {}
-  const makeableFoods = useMemo(() => getMakeableFoods(allFoods, pantry), [allFoods, pantry])
 
   const chosenFoods = allFoods.filter((f) => todayChoice.foodIds.includes(f.id))
   const chosenByCategory = CATEGORIES.map((cat) => ({
@@ -207,13 +205,9 @@ export default function KidView() {
               </div>
             )}
 
-            {makeableFoods.length > 0 && (
+            {todayMenuText && (
               <div className="challenge-banner">
-                🧺 יש בבית מה שצריך בשביל:{' '}
-                {makeableFoods
-                  .slice(0, 3)
-                  .map((f) => `${f.emoji} ${f.name}`)
-                  .join(', ')}
+                🍲 מה יש לאכול היום: <strong>{todayMenuText}</strong>
               </div>
             )}
 
