@@ -26,7 +26,6 @@ export default function ParentDashboard() {
     addShoppingItem,
     toggleShoppingItem,
     removeShoppingItem,
-    addKidByCode,
     addKidDirect,
     removeKid,
     resetDevice,
@@ -44,8 +43,6 @@ export default function ParentDashboard() {
   const [tab, setTab] = useState('home')
   const [suggestingFor, setSuggestingFor] = useState(null)
   const [newItem, setNewItem] = useState('')
-  const [pairCode, setPairCode] = useState('')
-  const [pairError, setPairError] = useState('')
   const [addingDirect, setAddingDirect] = useState(false)
   const [directName, setDirectName] = useState('')
   const [directAvatar, setDirectAvatar] = useState(AVATARS[0])
@@ -66,10 +63,7 @@ export default function ParentDashboard() {
     showToast('שתפו את קוד המשפחה למעלה עם הילד/ה כדי לחבר את המכשיר שלו', '🔑')
   }, [syncMode, familyId, showToast])
 
-  const pairedKids = kids.filter((k) => k.paired)
-  const pendingKids = kids.filter((k) => !k.paired)
-
-  const pendingReminders = pairedKids.filter((kid) => {
+  const pendingReminders = kids.filter((kid) => {
     const choice = getTodayChoices(kid.id)
     return choice.foodIds.length === 0 && !choice.skip
   })
@@ -86,18 +80,6 @@ export default function ParentDashboard() {
       ?.writeText(familyId)
       .then(() => showToast('קוד המשפחה הועתק', '📋'))
       .catch(() => {})
-  }
-
-  const handlePairSubmit = (e) => {
-    e.preventDefault()
-    const kid = addKidByCode(pairCode)
-    if (kid) {
-      setPairCode('')
-      setPairError('')
-      showToast(`${kid.name} חובר/ה בהצלחה!`, '🔗')
-    } else {
-      setPairError('קוד לא נמצא — בדוק/י שהוקלד נכון')
-    }
   }
 
   const handleDirectSubmit = (e) => {
@@ -276,11 +258,11 @@ export default function ParentDashboard() {
             <section className="section">
               <h2>מה אני רוצה לאכול היום</h2>
               <p className="hint-text">{formatDateHebrew()}</p>
-              {pairedKids.length === 0 && (
+              {kids.length === 0 && (
                 <p className="empty-state">עדיין אין ילדים מחוברים — עברו לטאב "ילדים" כדי להוסיף.</p>
               )}
               <div className="family-board">
-                {pairedKids.map((kid) => {
+                {kids.map((kid) => {
                   const choice = getTodayChoices(kid.id)
                   const chosenFoods = allFoods.filter((f) => choice.foodIds.includes(f.id))
                   const grouped = CATEGORIES.map((cat) => ({
@@ -345,42 +327,15 @@ export default function ParentDashboard() {
         {tab === 'kids' && (
           <div className="tab-fade">
             <section className="section">
-              <h2>🔗 חבר/י ילד/ה עם קוד</h2>
-              <p className="hint-text">הילד/ה יוצר/ת פרופיל במכשיר שלו/שלה ומקבל/ת קוד בן 6 ספרות. הקלד/י אותו כאן כדי לחבר.</p>
-              <form className="shopping-form" onSubmit={handlePairSubmit}>
-                <input
-                  className="text-input"
-                  placeholder="קוד בן 6 ספרות..."
-                  value={pairCode}
-                  onChange={(e) => setPairCode(e.target.value)}
-                />
-                <button type="submit" className="btn btn--primary">
-                  חבר/י
-                </button>
-              </form>
-              {pairError && <p className="error-text">{pairError}</p>}
-            </section>
-
-            {pendingKids.length > 0 && (
-              <section className="section">
-                <h2>⏳ ממתינים לאישור</h2>
-                <ul className="pending-list">
-                  {pendingKids.map((kid) => (
-                    <li key={kid.id}>
-                      {kid.avatar} {kid.name} — קוד: <strong>{kid.code}</strong>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            <section className="section">
               <div className="section__header-row">
                 <h2>הילדים שלי</h2>
                 <button className="btn btn--small" onClick={() => setAddingDirect((v) => !v)}>
-                  {addingDirect ? 'ביטול' : '+ הוסף ישירות'}
+                  {addingDirect ? 'ביטול' : '+ הוסף ילד/ה'}
                 </button>
               </div>
+              <p className="hint-text">
+                הילד/ה יכול/ה גם ליצור פרופיל בעצמו/ה במכשיר שלו/שלה — עם קוד המשפחה שכבר יש לכם.
+              </p>
 
               {addingDirect && (
                 <form className="add-kid-form" onSubmit={handleDirectSubmit}>
@@ -409,7 +364,7 @@ export default function ParentDashboard() {
               )}
 
               <ul className="kids-list">
-                {pairedKids.map((kid) => (
+                {kids.map((kid) => (
                   <li key={kid.id}>
                     <span className="kids-list__identity">
                       {kid.photoUrl ? (
@@ -424,7 +379,7 @@ export default function ParentDashboard() {
                     </button>
                   </li>
                 ))}
-                {pairedKids.length === 0 && <li className="empty-state">אין עדיין ילדים מחוברים</li>}
+                {kids.length === 0 && <li className="empty-state">אין עדיין ילדים מחוברים</li>}
               </ul>
             </section>
           </div>

@@ -177,11 +177,6 @@ export default function KidView() {
                   </div>
                 )}
               </div>
-              {!kid.paired && (
-                <div className="pairing-banner">
-                  ⏳ ממתין/ה לאישור ההורה — הקוד שלך: <strong>{kid.code}</strong>
-                </div>
-              )}
               {chosenByCategory.length > 0 && (
                 <div className="today-banner">
                   {chosenByCategory.map((g) => (
@@ -337,9 +332,7 @@ export default function KidView() {
                 onChange={(url) => setKidPhoto(kidId, url)}
               />
               <span className="profile-card__name">{kid.name}</span>
-              <span className={`profile-card__status${kid.paired ? ' profile-card__status--ok' : ''}`}>
-                {kid.paired ? '✓ מחובר/ת להורה' : `⏳ ממתין לאישור — קוד: ${kid.code}`}
-              </span>
+              <span className="profile-card__status profile-card__status--ok">✓ מחובר/ת להורה</span>
               {streak > 0 && <span className="profile-card__streak">🔥 {streak} ימים ברצף בחירות</span>}
             </div>
             <button className="btn btn--ghost btn--wide" onClick={toggleTheme}>

@@ -142,10 +142,11 @@ export function AppProvider({ children }) {
     setMyKidId(null)
   }
 
+  // A kid's device only reaches this point after entering the family code, so
+  // that code IS the confirmation — no separate per-kid pairing code needed.
   const createChildProfile = (name, avatar) => {
     const id = `kid_${Date.now()}`
-    const code = generateCode()
-    applyUpdate({ kids: [...family.kids, { id, name, avatar, paired: false, code }] })
+    applyUpdate({ kids: [...family.kids, { id, name, avatar }] })
     setDeviceRole('child')
     setMyKidId(id)
     return id
@@ -153,18 +154,8 @@ export function AppProvider({ children }) {
 
   const addKidDirect = (name, avatar) => {
     const id = `kid_${Date.now()}`
-    applyUpdate({ kids: [...family.kids, { id, name, avatar, paired: true, code: null }] })
+    applyUpdate({ kids: [...family.kids, { id, name, avatar }] })
     return id
-  }
-
-  const addKidByCode = (code) => {
-    const trimmed = code.trim()
-    const match = family.kids.find((k) => !k.paired && k.code === trimmed)
-    if (!match) return null
-    applyUpdate({
-      kids: family.kids.map((k) => (k.id === match.id ? { ...k, paired: true, code: null } : k)),
-    })
-    return match
   }
 
   const removeKid = (kidId) => {
@@ -355,7 +346,6 @@ export function AppProvider({ children }) {
       resetDevice,
       createChildProfile,
       addKidDirect,
-      addKidByCode,
       removeKid,
       toggleFavorite,
       rateFood,

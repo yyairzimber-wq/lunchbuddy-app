@@ -453,16 +453,6 @@ button {
   font-weight: 500;
 }
 
-.pairing-banner {
-  margin-top: 12px;
-  background: var(--warning-bg);
-  border: 1px solid rgba(251, 191, 36, 0.4);
-  color: var(--warning);
-  border-radius: 12px;
-  padding: 10px 14px;
-  font-size: 0.9rem;
-}
-
 .today-banner {
   margin-top: 12px;
   background: var(--success-bg);
@@ -773,7 +763,6 @@ button {
   margin: 8px 0 0;
 }
 
-.pending-list,
 .kids-list {
   list-style: none;
   margin: 0;
