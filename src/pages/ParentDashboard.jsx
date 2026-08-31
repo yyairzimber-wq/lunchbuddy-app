@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Home, Baby, ShoppingCart, Moon, Sun, Vote, Cloud, CloudOff } from 'lucide-react'
+import { Home, Baby, ShoppingCart, Moon, Sun, Vote, Cloud, CloudOff, Copy } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
 import { useTheme } from '../context/ThemeContext'
@@ -35,6 +35,7 @@ export default function ParentDashboard() {
     closePoll,
     clearPoll,
     syncMode,
+    familyId,
     allFoods,
     todayMenuText,
     setTodayMenu,
@@ -69,6 +70,14 @@ export default function ParentDashboard() {
     e.preventDefault()
     addShoppingItem(newItem)
     setNewItem('')
+  }
+
+  const handleCopyFamilyCode = () => {
+    if (!familyId) return
+    navigator.clipboard
+      ?.writeText(familyId)
+      .then(() => showToast('קוד המשפחה הועתק', '📋'))
+      .catch(() => {})
   }
 
   const handlePairSubmit = (e) => {
@@ -133,6 +142,16 @@ export default function ParentDashboard() {
             {syncMode === 'cloud' ? <Cloud size={14} /> : <CloudOff size={14} />}
             {syncMode === 'cloud' ? 'מסונכרן' : 'מקומי בלבד'}
           </span>
+          {syncMode === 'cloud' && familyId && (
+            <button
+              className="sync-badge"
+              onClick={handleCopyFamilyCode}
+              title="להעתקה ולשיתוף עם בן/בת המשפחה"
+            >
+              <Copy size={14} />
+              קוד: {familyId}
+            </button>
+          )}
           <button className="btn btn--icon" onClick={toggleTheme} aria-label="החלף ערכת נושא">
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>

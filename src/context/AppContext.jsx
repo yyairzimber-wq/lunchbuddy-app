@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { arrayRemove, arrayUnion, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore'
+import { arrayRemove, arrayUnion, doc, getDoc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore'
 import { db, firebaseReady } from '../firebase'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { FOODS } from '../data/foods'
@@ -22,7 +22,6 @@ const DEFAULT_FAMILY = {
 const EMPTY_TODAY = { foodIds: [], skip: false }
 
 const LOCAL_FAMILY_KEY = 'lb.family'
-const familyRef = firebaseReady ? doc(db, 'families', 'main') : null
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10)
@@ -37,7 +36,44 @@ export function AppProvider({ children }) {
   const [ready, setReady] = useState(!firebaseReady)
   const [deviceRole, setDeviceRole] = useLocalStorage('lb.deviceRole', null)
   const [myKidId, setMyKidId] = useLocalStorage('lb.myKidId', null)
+  const [familyId, setFamilyId] = useLocalStorage('lb.familyId', null)
 
+  // Each family gets its own Firestore document, keyed by a 6-digit code the
+  // parent shares with the kids' devices — otherwise every visitor to the
+  // deployed site would read/write the same shared data.
+  const familyRef = useMemo(
+    () => (firebaseReady && familyId ? doc(db, 'families', familyId) : null),
+    [familyId]
+  )
+
+  // Before per-family docs existed, every device shared one hardcoded
+  // document ("families/main"). Offer to carry that data forward into a
+  // proper family code instead of silently orphaning it.
+  const [legacyFamily, setLegacyFamily] = useState(null)
+
+  useEffect(() => {
+    if (!firebaseReady || familyId) return
+    let cancelled = false
+    getDoc(doc(db, 'families', 'main'))
+      .then((snap) => {
+        if (cancelled) return
+        if (snap.exists() && (snap.data().kids || []).length > 0) {
+          setLegacyFamily(snap.data())
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [familyId])
+
+  const migrateLegacyFamily = useCallback(async () => {
+    if (!legacyFamily) return { ok: false }
+    const code = generateCode()
+    await setDoc(doc(db, 'families', code), legacyFamily)
+    setFamilyId(code)
+    return { ok: true, code }
+  }, [legacyFamily, setFamilyId])
 
   useEffect(() => {
     if (!firebaseReady) {
@@ -52,6 +88,7 @@ export function AppProvider({ children }) {
       setReady(true)
       return
     }
+    if (!familyRef) return
     const unsub = onSnapshot(
       familyRef,
       (snap) => {
@@ -66,10 +103,10 @@ export function AppProvider({ children }) {
       () => setReady(true)
     )
     return unsub
-  }, [])
+  }, [familyRef])
 
   const applyUpdate = useCallback((partial) => {
-    if (firebaseReady) {
+    if (firebaseReady && familyRef) {
       updateDoc(familyRef, partial).catch(() => setDoc(familyRef, partial, { merge: true }))
     } else {
       setFamily((prev) => {
@@ -78,7 +115,22 @@ export function AppProvider({ children }) {
         return next
       })
     }
-  }, [])
+  }, [familyRef])
+
+  const createFamily = useCallback(() => {
+    const code = generateCode()
+    setFamilyId(code)
+    return code
+  }, [setFamilyId])
+
+  const joinFamily = useCallback(async (code) => {
+    const trimmed = code.trim()
+    if (!/^\d{6}$/.test(trimmed)) return { ok: false, reason: 'invalid' }
+    const snap = await getDoc(doc(db, 'families', trimmed))
+    if (!snap.exists()) return { ok: false, reason: 'not_found' }
+    setFamilyId(trimmed)
+    return { ok: true }
+  }, [setFamilyId])
 
   const chooseRole = (role) => setDeviceRole(role)
 
@@ -289,6 +341,11 @@ export function AppProvider({ children }) {
       allFoods,
       ready,
       syncMode: firebaseReady ? 'cloud' : 'local',
+      familyId,
+      createFamily,
+      joinFamily,
+      legacyFamily,
+      migrateLegacyFamily,
       deviceRole,
       myKidId,
       chooseRole,
@@ -316,7 +373,18 @@ export function AppProvider({ children }) {
       removeCustomFood,
       setKidPhoto,
     }),
-    [family, ready, deviceRole, myKidId, allFoods]
+    [
+      family,
+      ready,
+      deviceRole,
+      myKidId,
+      allFoods,
+      familyId,
+      createFamily,
+      joinFamily,
+      legacyFamily,
+      migrateLegacyFamily,
+    ]
   )
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
