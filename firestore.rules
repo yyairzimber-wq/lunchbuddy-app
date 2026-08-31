@@ -1,0 +1,14 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // No auth in this app — a family's privacy comes from its 6-digit code
+    // acting like a password. Anyone who has the code can read/write that
+    // one document (get), but nobody can list or query the collection to
+    // discover other families' codes or data.
+    match /families/{familyId} {
+      allow get, write: if true;
+      allow list: if false;
+    }
+  }
+}
