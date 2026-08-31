@@ -52,7 +52,10 @@ export function AppProvider({ children }) {
   const [legacyFamily, setLegacyFamily] = useState(null)
 
   useEffect(() => {
-    if (!firebaseReady || familyId) return
+    // Only offer this to a device that already picked a role under the old
+    // shared-doc model — a genuinely new visitor has no deviceRole yet and
+    // has nothing to migrate, so it must never see someone else's family.
+    if (!firebaseReady || familyId || !deviceRole) return
     let cancelled = false
     getDoc(doc(db, 'families', 'main'))
       .then((snap) => {
@@ -65,7 +68,7 @@ export function AppProvider({ children }) {
     return () => {
       cancelled = true
     }
-  }, [familyId])
+  }, [familyId, deviceRole])
 
   const migrateLegacyFamily = useCallback(async () => {
     if (!legacyFamily) return { ok: false }
