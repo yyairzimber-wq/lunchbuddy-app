@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import Splash from './components/Splash'
+import Landing from './pages/Landing'
 import RoleGate from './pages/RoleGate'
 import ChildSetup from './pages/ChildSetup'
 import KidView from './pages/KidView'
@@ -17,6 +18,7 @@ export default function App() {
 
   return (
     <Routes>
+      <Route path="/welcome" element={<Landing />} />
       <Route path="/" element={<RoleGate />} />
       <Route path="/child-setup" element={<ChildSetup />} />
       <Route path="/kid/:kidId" element={<KidView />} />
