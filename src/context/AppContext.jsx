@@ -137,6 +137,14 @@ export function AppProvider({ children }) {
 
   const chooseRole = (role) => setDeviceRole(role)
 
+  // A device that already exists as a kid in the family — used when
+  // switching users on a shared device, so it doesn't create a duplicate
+  // profile every time someone re-selects "I'm a kid".
+  const selectExistingKid = (kidId) => {
+    setDeviceRole('child')
+    setMyKidId(kidId)
+  }
+
   const resetDevice = () => {
     setDeviceRole(null)
     setMyKidId(null)
@@ -343,6 +351,7 @@ export function AppProvider({ children }) {
       deviceRole,
       myKidId,
       chooseRole,
+      selectExistingKid,
       resetDevice,
       createChildProfile,
       addKidDirect,
