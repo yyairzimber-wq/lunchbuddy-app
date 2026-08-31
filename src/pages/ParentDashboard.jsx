@@ -58,6 +58,14 @@ export default function ParentDashboard() {
     setMenuDraft(todayMenuText)
   }, [todayMenuText])
 
+  useEffect(() => {
+    if (syncMode !== 'cloud' || !familyId) return
+    const seenKey = 'lb.codeIntroSeen'
+    if (window.localStorage.getItem(seenKey)) return
+    window.localStorage.setItem(seenKey, '1')
+    showToast('שתפו את קוד המשפחה למעלה עם הילד/ה כדי לחבר את המכשיר שלו', '🔑')
+  }, [syncMode, familyId, showToast])
+
   const pairedKids = kids.filter((k) => k.paired)
   const pendingKids = kids.filter((k) => !k.paired)
 
