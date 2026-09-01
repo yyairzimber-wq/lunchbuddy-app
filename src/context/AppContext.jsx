@@ -259,7 +259,14 @@ export function AppProvider({ children }) {
 
   const castPollVote = (kidId, optionIndex) => {
     if (!family.poll || family.poll.closed) return
-    applyUpdate({ poll: { ...family.poll, votes: { ...family.poll.votes, [kidId]: optionIndex } } })
+    if (firebaseReady && familyRef) {
+      // Same reasoning as toggleTodayFood: several kids voting within the same
+      // sync round-trip must not let one vote overwrite another's.
+      const fieldUpdate = { [`poll.votes.${kidId}`]: optionIndex }
+      updateDoc(familyRef, fieldUpdate).catch(() => setDoc(familyRef, fieldUpdate, { merge: true }))
+    } else {
+      applyUpdate({ poll: { ...family.poll, votes: { ...family.poll.votes, [kidId]: optionIndex } } })
+    }
   }
 
   const closePoll = () => {
