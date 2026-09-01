@@ -1,14 +1,17 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Route, Routes, useLocation } from 'react-router-dom'
 import Splash from './components/Splash'
-import Landing from './pages/Landing'
 import FamilyGate from './pages/FamilyGate'
 import RoleGate from './pages/RoleGate'
 import ChildSetup from './pages/ChildSetup'
 import KidView from './pages/KidView'
-import ParentDashboard from './pages/ParentDashboard'
 import { useApp } from './context/AppContext'
 import { firebaseReady } from './firebase'
+
+// Not needed for the common first-paint path (a kid picking today's food),
+// so keep them out of the initial bundle.
+const Landing = lazy(() => import('./pages/Landing'))
+const ParentDashboard = lazy(() => import('./pages/ParentDashboard'))
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true)
@@ -22,7 +25,11 @@ export default function App() {
   // /welcome is the public marketing page — it must stay reachable before
   // anyone has created or joined a family.
   if (location.pathname === '/welcome') {
-    return <Landing />
+    return (
+      <Suspense fallback={null}>
+        <Landing />
+      </Suspense>
+    )
   }
 
   // Every family gets its own Firestore document; without a code the device
@@ -36,12 +43,14 @@ export default function App() {
   }
 
   return (
-    <Routes>
-      <Route path="/welcome" element={<Landing />} />
-      <Route path="/" element={<RoleGate />} />
-      <Route path="/child-setup" element={<ChildSetup />} />
-      <Route path="/kid/:kidId" element={<KidView />} />
-      <Route path="/parent" element={<ParentDashboard />} />
-    </Routes>
+    <Suspense fallback={null}>
+      <Routes>
+        <Route path="/welcome" element={<Landing />} />
+        <Route path="/" element={<RoleGate />} />
+        <Route path="/child-setup" element={<ChildSetup />} />
+        <Route path="/kid/:kidId" element={<KidView />} />
+        <Route path="/parent" element={<ParentDashboard />} />
+      </Routes>
+    </Suspense>
   )
 }

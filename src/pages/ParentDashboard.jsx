@@ -228,7 +228,11 @@ export default function ParentDashboard() {
                       סגור/י סקר
                     </button>
                   ) : (
-                    <p className="vote-tally__winner">🏆 המנצח: {poll.options[poll.result]}</p>
+                    <p className="vote-tally__winner">
+                      {poll.tied
+                        ? `🤝 תיקו! נבחר/ה באקראי: ${poll.options[poll.result]}`
+                        : `🏆 המנצח: ${poll.options[poll.result]}`}
+                    </p>
                   )}
                   <button className="btn btn--ghost btn--wide" onClick={clearPoll}>
                     מחק/י סקר

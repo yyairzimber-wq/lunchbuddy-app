@@ -269,15 +269,12 @@ export function AppProvider({ children }) {
     Object.values(votes).forEach((idx) => {
       tally[idx] = (tally[idx] || 0) + 1
     })
-    let winner = 0
-    let best = -1
-    tally.forEach((count, idx) => {
-      if (count > best) {
-        best = count
-        winner = idx
-      }
-    })
-    applyUpdate({ poll: { ...family.poll, closed: true, result: winner } })
+    const best = Math.max(...tally)
+    // A tie shouldn't silently favor whichever option was listed first — pick
+    // fairly at random among the tied options instead.
+    const topOptions = tally.reduce((acc, count, idx) => (count === best ? [...acc, idx] : acc), [])
+    const winner = topOptions[Math.floor(Math.random() * topOptions.length)]
+    applyUpdate({ poll: { ...family.poll, closed: true, result: winner, tied: topOptions.length > 1 } })
   }
 
   const clearPoll = () => applyUpdate({ poll: null })
