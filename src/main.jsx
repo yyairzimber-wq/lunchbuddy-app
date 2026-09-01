@@ -13,7 +13,9 @@ createRoot(document.getElementById('root')).render(
       <HashRouter>
         <AppProvider>
           <ToastProvider>
-            <App />
+            <main>
+              <App />
+            </main>
           </ToastProvider>
         </AppProvider>
       </HashRouter>
