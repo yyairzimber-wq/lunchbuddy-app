@@ -62,3 +62,22 @@ No critical or serious violations found on the audited screen. Icon-only control
 3. **Fix SEO score (82 → should be 100 for two trivial fixes):**
    - Add `<meta name="description" content="…">` to `index.html` — currently missing entirely.
    - Add a real `public/robots.txt` (e.g. `User-agent: *\nAllow: /`). Right now `/robots.txt` doesn't exist as a static file, so Firebase's catch-all rewrite (`firebase.json`: `"source": "**" → "/index.html"`) serves the SPA shell at that path instead, which Lighthouse correctly flags as invalid. Firebase Hosting serves real static files before falling back to rewrites, so simply adding the file under `public/` is enough — no `firebase.json` change needed.
+
+---
+
+## 4. Follow-up pass — family voting feature (live-tested)
+
+Not covered by the original audit (auto-discovery didn't reach it — it requires a parent to open a poll and a second kid to vote, which needs two profiles in one family). Tested manually after the fact by adding a second kid, casting a genuine 1–1 tie vote, and closing the poll.
+
+### P1 — Poll ties silently favored whichever option was listed first
+- **What I saw:** `closePoll()` in `src/context/AppContext.jsx` tracked the best count with `count > best` (strict greater-than), so on a tie the first-listed option always "won" with no indication a tie occurred. Confirmed live: a 1–1 vote between "א" and "ב" closed with `🏆 המנצח: א` every time, regardless of which kid voted for what.
+- **Why it matters:** This is the app's flagship feature per the README ("ההצבעה המשפחתית... התוצאה מוחלת אוטומטית"). A silent bias toward option order means the "losing" kid's vote is effectively discarded on any tie, undermining the fairness the feature promises.
+- **Fix (applied):** Now collects every option tied for the max vote count and picks among them at random, and flags `poll.tied = true` so the UI shows `🤝 תיקו! נבחר/ה באקראי: {option}` instead of a fake decisive win. Fixed in `src/context/AppContext.jsx` and `src/pages/ParentDashboard.jsx`. Verified live: re-ran the same 1–1 tie, confirmed the tie message now appears.
+
+## 5. Bundle size — investigated
+
+`npm run build` flagged one 745 KB (pre-fix) / 225 KB gzip chunk. Route-split `Landing` (`/welcome`) and `ParentDashboard` out of the initial bundle via `React.lazy` — neither is on the common first-paint path (a kid picking today's food). Result: **728 KB / 220 KB gzip** — a real but modest ~5 KB gzip win. Checked `package.json`: the only sizeable dependency is `firebase` (Firestore modular SDK), already imported minimally (`firebase/app` + `firebase/firestore` only, no auth/storage/analytics). The Firestore SDK itself is the dominant cost, not app code — shrinking it further would mean changing the sync backend, out of scope for this pass.
+
+## 6. Planned features (README "בהמשך") — no existing scaffolding found
+
+Grepped the codebase for "מה יש בבית" (pantry feature), a recipe-suggestion system, and AI-suggestion integration. None exist yet beyond the per-food static `recipe` field already in `foods.js`. These are genuine greenfield features, not something to bolt on quickly — flagging so it's clear they weren't silently skipped, just out of scope for a polish pass.
