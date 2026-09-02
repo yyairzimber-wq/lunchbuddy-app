@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Home, Baby, ShoppingCart, Moon, Sun, Vote, Cloud, CloudOff, Copy } from 'lucide-react'
+import { Home, Baby, ShoppingCart, Moon, Sun, Vote, Cloud, CloudOff, Copy, UtensilsCrossed, Heart } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
 import { useTheme } from '../context/ThemeContext'
@@ -244,7 +244,7 @@ export default function ParentDashboard() {
             </section>
 
             <section className="section">
-              <h2>🍲 מה יש לאכול היום</h2>
+              <h2><UtensilsCrossed size={18} /> מה יש לאכול היום</h2>
               <p className="hint-text">{formatDateHebrew()}</p>
               <div className="poll-form">
                 <input
@@ -260,7 +260,7 @@ export default function ParentDashboard() {
             </section>
 
             <section className="section">
-              <h2>מה אני רוצה לאכול היום</h2>
+              <h2><Heart size={18} /> מה אני רוצה לאכול היום</h2>
               <p className="hint-text">{formatDateHebrew()}</p>
               {kids.length === 0 && (
                 <p className="empty-state">עדיין אין ילדים מחוברים — עברו לטאב "ילדים" כדי להוסיף.</p>
@@ -332,7 +332,7 @@ export default function ParentDashboard() {
           <div className="tab-fade">
             <section className="section">
               <div className="section__header-row">
-                <h2>הילדים שלי</h2>
+                <h2><Baby size={18} /> הילדים שלי</h2>
                 <button className="btn btn--small" onClick={() => setAddingDirect((v) => !v)}>
                   {addingDirect ? 'ביטול' : '+ הוסף ילד/ה'}
                 </button>
@@ -392,7 +392,7 @@ export default function ParentDashboard() {
         {tab === 'shopping' && (
           <div className="tab-fade">
             <section className="section">
-              <h2>🛒 רשימת קניות</h2>
+              <h2><ShoppingCart size={18} /> רשימת קניות</h2>
               <form className="shopping-form" onSubmit={handleAddItem}>
                 <input
                   className="text-input"

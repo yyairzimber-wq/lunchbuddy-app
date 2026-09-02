@@ -4,8 +4,8 @@
   "description": "בחירת האוכל היומית של המשפחה, במקום אחד",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a0c1b",
-  "theme_color": "#0a0c1b",
+  "background_color": "#191d2e",
+  "theme_color": "#191d2e",
   "dir": "rtl",
   "lang": "he",
   "icons": [

@@ -1,3 +1,5 @@
+import { Star } from 'lucide-react'
+
 export default function FoodCard({ food, isFavorite, rating, isChosen, onChoose, onToggleFavorite, onRate, onShowRecipe, onDeleteFood }) {
   return (
     <div className={`food-card${isChosen ? ' food-card--chosen' : ''}`}>
@@ -50,7 +52,7 @@ export default function FoodCard({ food, isFavorite, rating, isChosen, onChoose,
             }}
             aria-label={`דרג ${n} כוכבים`}
           >
-            {rating >= n ? '⭐' : '☆'}
+            <Star size={16} fill={rating >= n ? 'var(--accent-2)' : 'none'} color="var(--accent-2)" />
           </button>
         ))}
       </div>
