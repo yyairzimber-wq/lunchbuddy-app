@@ -1246,6 +1246,7 @@ button {
 .planner-day__row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
@@ -1255,17 +1256,37 @@ button {
   flex-shrink: 0;
 }
 
-.planner-day__meal {
+.planner-day__meals {
   flex: 1;
-  background: none;
-  border: none;
-  text-align: right;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.planner-day__meal {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card-solid);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 6px 4px 10px;
   color: var(--text);
   font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.planner-day__meal-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 2px;
 }
 
 .planner-day__empty {
-  flex: 1;
   background: none;
   border: none;
   text-align: right;
@@ -1277,11 +1298,12 @@ button {
   border: none;
   color: var(--text-muted);
   font-size: 0.78rem;
+  flex-shrink: 0;
 }
 
 .planner-picker {
   margin-top: 10px;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--bg-soft);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 8px;
@@ -1302,7 +1324,13 @@ button {
 }
 
 .planner-picker__item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--card);
+}
+
+.planner-picker__item--selected {
+  background: var(--gradient-soft);
+  color: var(--primary);
+  font-weight: 700;
 }
 
 /* Landing / marketing page */

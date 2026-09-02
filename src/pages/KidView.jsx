@@ -42,7 +42,7 @@ export default function KidView() {
     castPollVote,
     weeklyPlan,
     todayMenuText,
-    setWeeklyMeal,
+    toggleWeeklyMeal,
     clearWeeklyMeal,
     allFoods,
     addCustomFood,
@@ -285,7 +285,7 @@ export default function KidView() {
             <WeeklyPlanner
               foods={allFoods}
               plan={kidPlan}
-              onSetMeal={(day, foodId) => setWeeklyMeal(kidId, day, foodId)}
+              onToggleMeal={(day, foodId) => toggleWeeklyMeal(kidId, day, foodId)}
               onClearMeal={(day) => clearWeeklyMeal(kidId, day)}
             />
           </div>

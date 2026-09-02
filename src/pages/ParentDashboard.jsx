@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Home, Baby, ShoppingCart, Moon, Sun, Vote, Cloud, CloudOff, Copy, UtensilsCrossed, Heart } from 'lucide-react'
+import { Home, Baby, ShoppingCart, Moon, Sun, Vote, Cloud, CloudOff, Copy, UtensilsCrossed, Heart, CalendarDays } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
 import { useTheme } from '../context/ThemeContext'
-import { AVATARS, CATEGORIES } from '../data/foods'
+import { AVATARS, CATEGORIES, DAYS } from '../data/foods'
 import TabBar from '../components/TabBar'
 import { formatDateHebrew } from '../utils/date'
 
@@ -38,6 +38,8 @@ export default function ParentDashboard() {
     allFoods,
     todayMenuText,
     setTodayMenu,
+    weeklyPlan,
+    getWeeklyDayFoodIds,
   } = useApp()
 
   const [tab, setTab] = useState('home')
@@ -319,6 +321,46 @@ export default function ParentDashboard() {
                             ביטול
                           </button>
                         </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+
+            <section className="section">
+              <h2><CalendarDays size={18} /> תכנון שבועי של הילדים</h2>
+              {kids.length === 0 && <p className="empty-state">עדיין אין ילדים מחוברים.</p>}
+              <div className="family-board">
+                {kids.map((kid) => {
+                  const kidPlan = weeklyPlan[kid.id] || {}
+                  const plannedDays = DAYS.map((day) => ({
+                    day,
+                    foods: getWeeklyDayFoodIds(kid.id, day.id)
+                      .map((id) => allFoods.find((f) => f.id === id))
+                      .filter(Boolean),
+                  })).filter((d) => d.foods.length > 0)
+                  return (
+                    <div key={kid.id} className="family-card">
+                      <div className="family-card__header">
+                        {kid.photoUrl ? (
+                          <img className="family-card__photo" src={kid.photoUrl} alt="" />
+                        ) : (
+                          <span>{kid.avatar}</span>
+                        )}
+                        <span>{kid.name}</span>
+                      </div>
+                      {plannedDays.length > 0 ? (
+                        <div className="family-card__meals">
+                          {plannedDays.map(({ day, foods }) => (
+                            <div key={day.id} className="family-card__meal-row">
+                              <strong>{day.name}:</strong>{' '}
+                              {foods.map((f) => `${f.emoji} ${f.name}`).join(', ')}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="family-card__status">עדיין לא תוכנן שבוע</div>
                       )}
                     </div>
                   )

@@ -288,11 +288,21 @@ export function AppProvider({ children }) {
 
   const allFoods = useMemo(() => [...FOODS, ...family.customFoods], [family.customFoods])
 
-  const setWeeklyMeal = (kidId, day, foodId) => {
+  // A day's plan used to store a single foodId. Normalise the legacy shape to
+  // an array so old Firestore data (and this session's own history) keeps working.
+  const getWeeklyDayFoodIds = (kidId, day) => {
+    const entry = (family.weeklyPlan[kidId] || {})[day]
+    if (!entry) return []
+    return Array.isArray(entry) ? entry : [entry]
+  }
+
+  const toggleWeeklyMeal = (kidId, day, foodId) => {
+    const current = getWeeklyDayFoodIds(kidId, day)
+    const next = current.includes(foodId) ? current.filter((id) => id !== foodId) : [...current, foodId]
     applyUpdate({
       weeklyPlan: {
         ...family.weeklyPlan,
-        [kidId]: { ...(family.weeklyPlan[kidId] || {}), [day]: foodId },
+        [kidId]: { ...(family.weeklyPlan[kidId] || {}), [day]: next },
       },
     })
   }
@@ -372,7 +382,8 @@ export function AppProvider({ children }) {
       castPollVote,
       closePoll,
       clearPoll,
-      setWeeklyMeal,
+      getWeeklyDayFoodIds,
+      toggleWeeklyMeal,
       clearWeeklyMeal,
       setTodayMenu,
       addCustomFood,
